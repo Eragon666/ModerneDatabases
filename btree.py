@@ -45,6 +45,10 @@ class BaseNode(object):
     def __init__(self, tree):
         self.tree = tree
         self.bucket = SortedDict()
+        self.bucket[-1] = "minus"
+        self.bucket[2] = "Two"
+        self.bucket[0] = "Zero"
+        self.bucket[3] = "Three"
 
     def _split(self):
         """
@@ -74,6 +78,28 @@ class Node(BaseNode):
         """
         Selects the bucket the key should belong to.
         """
+        print(self.tree.root)
+        print(self.bucket)
+
+        print(min(self.bucket))
+        print(self.bucket.values())
+
+        if key < min(self.bucket):
+            print('first')
+            new_node = self.rest
+            return new_node
+        elif key >= max(self.bucket):
+            print('second')
+            new_node = self.bucket.values()[-1]
+            return new_node
+
+        print('loop')
+
+        for i in range(0, len(self.bucket.keys())-1):
+            if key >= self.bucket.keys()[i] and key < self.bucket.keys()[i + 1]:
+                new_node = self.bucket.values()[i]
+                return new_node
+
         pass
 
     def _insert(self, key, value):
@@ -151,3 +177,18 @@ class LazyNode(object):
             return super().__setattr__(name, value)
 
         setattr(self.node, name, value)
+
+def main():
+    mytree = Tree()
+
+    #base = BaseNode(mytree);
+    node = Node(mytree)
+    #node._insert(4, "two")
+
+    print(node._select(1))
+
+
+    print("Hello World!")
+
+if __name__ == '__main__':
+    main()
