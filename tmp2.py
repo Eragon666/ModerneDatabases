@@ -324,30 +324,17 @@ def visualTree(tree):
             depth += 1
             cur = (cur + 1) % 2
 
-def fillTree(tree):
-    tree["1"] = "Value1"
-    tree["2"] = "Value2"
-    tree["3"] = "Value3"
-    tree["4"] = "Value4"
-    tree["5"] = "Value5"
-    tree["6"] = "Value6"
-    tree["7"] = "Value7"
-    tree["8"] = "Value8"
-    tree["9"] = "Value9"
-    tree["10"] = "Value10"
-    tree["11"] = "Value11"
-    tree["12"] = "Value12"
-    tree["13"] = "Value13"
-    tree["14"] = "Value14"
-    tree["15"] = "Value15"
-    tree["16"] = "Value16"
+def fillTree(tree, items):
+
+    for i in range(0, items):
+        tree[str(i)] = "value" + str(i)
 
     tree._commit()
 
 def main():
 
     tree = Tree(max_size=4)
-    fillTree(tree)
+    fillTree(tree, 256)
 
     try:
         print(tree.__getitem__("1"))
