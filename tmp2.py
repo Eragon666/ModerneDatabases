@@ -1,11 +1,25 @@
 from collections import Mapping, MutableMapping
 from sortedcontainers import SortedDict
 import queue as q
+from msgpack import packb, unpackb
+
+from fileIO import fileIO
 
 class Tree(MutableMapping):
-    def __init__(self, max_size=1024):
+    def __init__(self, filename='store', max_size=1024, load=False):
+        self.filename = filename
         self.root = self._create_leaf(tree=self)
         self.max_size = max_size
+        self.store = fileIO(filename)
+        #self.store.read()
+
+        if load:
+            try:
+                footer = self.store.read()
+                print(footer[b"max_size"])
+            except EOFError:
+                print('fuck')
+
 
     @staticmethod
     def _create_leaf(*args, **kwargs):
@@ -81,6 +95,7 @@ class BaseNode(object):
 class Node(BaseNode):
     def __init__(self, *args, **kwargs):
         self.rest = None
+        self.offset = None
 
         super().__init__(*args, **kwargs)
 
@@ -140,12 +155,12 @@ class Node(BaseNode):
         for child in self.bucket.values():
             child._commit()
 
-        #data = packb({
-        #    'rest': self.rest.offset,
-        #    'values': {k: v.offsett for k, v in self.values.items()}
-        #})
+        data = packb({
+           'rest': self.rest.offset,
+           'values': {k: v.offset for k, v in self.bucket.items()}
+        })
 
-        pass
+        return self.tree.store.write(data)
 
     def __getitem__(self, key):
         return self._select(key)[key]
@@ -154,9 +169,6 @@ class Node(BaseNode):
 
         print(len(self.rest))
         print (self.bucket.values())
-
-        #len(value) for child in self.bucket.values() + len(self.rest)
-
 
         return sum([len(child) for child in self.bucket.values()]) + len(self.rest)
 
@@ -182,13 +194,11 @@ class Leaf(BaseNode, Mapping):
         return (min(other.bucket), other)
 
     def _commit(self):
-        pass
-        #data = packb({
-        #    'values': self.values,
-        #})
+        data = packb({
+            'values': self.bucket,
+        })
 
-        #self.tree.chunk.write(ChunkId.Leaf, data)
-        #return self.tree.chunk.tell()
+        return self.tree.store.write(data)
 
     def __getitem__(self, key):
 
@@ -234,7 +244,7 @@ class LazyNode(object):
         callback = callbacks.get(self.tree.chunk.get_id())
 
         if callback:
-            callback(self.tree.chunk.read())
+            callback(self.tree.store.read())
 
     def _commit(self):
         if not self.changed:
@@ -285,7 +295,7 @@ def visualTree(tree):
     prevdepth = -1
 
     atdepth = [1,0]
-    cur = 0;
+    cur = 0
 
     # At the root to the queue
     queue.put(tree.root)
@@ -301,7 +311,7 @@ def visualTree(tree):
             return
 
         if depth != prevdepth:
-            print("--- d=" + str(depth) + " ---")
+            print("--- depth =" + str(depth) + " ---")
             prevdepth = depth
 
         # For none leaf nodes, and if it has a rest attr print it with the left hand side pointer
@@ -325,6 +335,12 @@ def visualTree(tree):
             cur = (cur + 1) % 2
 
 def fillTree(tree, items):
+    """
+    Add key value pairs to the tree.
+    :param tree:
+    :param items: number of pairs to add to the tree
+    :return:
+    """
 
     for i in range(0, items):
         tree[str(i)] = "value" + str(i)
@@ -333,15 +349,15 @@ def fillTree(tree, items):
 
 def main():
 
-    tree = Tree(max_size=4)
-    fillTree(tree, 256)
+    tree = Tree(max_size=4, load=True)
+    fillTree(tree, 8)
 
     try:
-        print(tree.__getitem__("1"))
+        print(tree.__getitem__("5"))
     except LookupError:
         print('Key not found!')
 
-    visualTree(tree)
+    #visualTree(tree)
 
 if __name__ == '__main__':
     main()
