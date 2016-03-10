@@ -1,9 +1,7 @@
 from collections import Mapping, MutableMapping
 from sortedcontainers import SortedDict
 
-
 class Tree(MutableMapping):
-
     def __init__(self, max_size=1024):
         self.root = self._create_leaf(tree=self)
         self.max_size = max_size
@@ -21,16 +19,13 @@ class Tree(MutableMapping):
         root.rest = lhs
         root.bucket[min(rhs.bucket)] = rhs
 
-        if hasattr(rhs, "rest"):
-            rhs.node.rest = rhs.bucket[min(rhs.bucket)]
-            rhs.node.bucket.pop(min(rhs.bucket))
-
-        root.changed = True
-
         return root
 
+    def _commit(self):
+        self.root._commit()
+
     def __getitem__(self, key):
-        return self.root.__getitem__(key)
+        return self.root[key]
 
     def __setitem__(self, key, value):
         """
@@ -38,43 +33,43 @@ class Tree(MutableMapping):
         split, creates a new root node with pointers to this node and the new
         node that resulted from splitting.
         """
-        #value = write_document(self.filename, value)
-
         result = self.root._insert(key, value)
 
         if result is None:
             return
 
         key, value = result
-        root = Node(self, changed=True)
-
-        print(type(root))
-
+        root = Node(self, True)
         root.rest = self.root
         root.bucket[key] = value
-
         self.root = root
 
     def __delitem__(self, key):
         pass
 
     def __iter__(self):
+        return len(self.root)
+
+    def __len__(self):
         for key in self.root:
             yield key
 
-    def __len__(self):
-        return len(self.root)
-
-    def _commit(self):
-        pass
-
-
 class BaseNode(object):
-
-    def __init__(self, tree, changed = False):
+    def __init__(self, tree, changed=False):
         self.tree = tree
         self.bucket = SortedDict()
         self.changed = changed
+
+    #def _split(self):
+    #    """
+    #    Creates a new node of the same type and splits the contents of the
+    #    bucket into two parts of an equal size. The lower keys are being stored
+    #    in the bucket of the current node. The higher keys are being stored in
+    #    the bucket of the new node. Afterwards, the new node is being returned.
+    #    """
+    #    other = self.__class__()
+
+    #    return
 
     def _insert(self, key, value):
         """
@@ -93,33 +88,22 @@ class BaseNode(object):
     def _commit(self):
         pass
 
-
 class Node(BaseNode):
-
     def __init__(self, *args, **kwargs):
         self.rest = None
 
-        super(Node, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def _select(self, key):
         """
         Selects the bucket the key should belong to.
         """
 
-        if key < min(self.bucket):
-            new_node = self.rest
-            return new_node
+        for k, v in reversed(list(self.bucket.items())):
+            if k <= key:
+                return v
 
-        elif key >= max(self.bucket):
-            new_node = self.bucket.values()[-1]
-            return new_node
-
-        for i in range(0, len(self.bucket.keys())-1):
-            if key >= self.bucket.keys()[i] and key < self.bucket.keys()[i + 1]:
-                new_node = self.bucket.values()[i]
-                return new_node
-
-        pass
+        return self.rest
 
     def _insert(self, key, value):
         """
@@ -129,7 +113,7 @@ class Node(BaseNode):
         the bucket of this node.
         """
 
-        result = self._select(key)._insert(key,value)
+        result = self._select(key)._insert(key, value)
         self.changed = True
 
         if result is None:
@@ -139,68 +123,88 @@ class Node(BaseNode):
         return super()._insert(key, other)
 
     def _split(self):
-        """
-        Creates a new node of the same type and splits the contents of the
-        bucket into two parts of an equal size. The lower keys are being stored
-        in the bucket of the current node. The higher keys are being stored in
-        the bucket of the new node. Afterwards, the new node is being returned.
-        """
-        other = self.__class__(tree=self.tree)
-        size = len(self.bucket)
+        #other = LazyNode(node=Node(tree=self.tree, changed=True),
+        #    tree=self.tree)
+        other = Node(self.tree)
 
         values = self.bucket.items()
-
         self.bucket = SortedDict(values[:len(values) // 2])
-        other.values = SortedDict(values[len(values) // 2:])
+        other.bucket = SortedDict(values[len(values) // 2:])
 
-        key, value = other.values.popitem(last=False)
+        key, value = other.bucket.popitem(last=False)
         other.rest = value
 
         return (key, other)
 
+    def _commit(self):
+        self.rest._commit()
+
+        for child in self.bucket.values():
+            child._commit()
+
+        #data = packb({
+        #    'rest': self.rest.offset,
+        #    'values': {k: v.offsett for k, v in self.values.items()}
+        #})
+
+        pass
+
     def __getitem__(self, key):
-        selected_node = self._select(key)
-        return selected_node.__getitem__(key)
+        return self._select(key)[key]
+
+    def __len__(self):
+
+        print(len(self.rest))
+        print (self.bucket.values())
+
+        #len(value) for child in self.bucket.values() + len(self.rest)
+
+
+        return sum([len(child) for child in self.bucket.values()]) + len(self.rest)
 
     def __iter__(self):
-        if self.rest != None:
-            for key in self.rest:
-                yield key
+        for key in self.rest:
+            yield key
 
         for child in self.bucket.values():
             for key in child:
                 yield key
 
-    def __len__(self):
-        return sum([len(child) for child in self.buckt.values()])+len(self.rest)
 
-
-class Leaf(Mapping, BaseNode):
-
+class Leaf(BaseNode, Mapping):
     def _split(self):
-        other = Leaf(self.tree)
+        #other = LazyNode(node=Leaf(tree=self.tree, changed=True),
+        #    tree=self.tree)
+        other = Leaf(self.tree, True)
 
         values = self.bucket.items()
+        self.bucket = SortedDict(values[:len(values) // 2])
+        other.bucket = SortedDict(values[len(values) // 2:])
 
-        self.values = SortedDict(values[:len(values) // 2])
-        other.values = SortedDict(values[len(values) // 2:])
+        return (min(other.bucket), other)
 
-        return (min(other.values), other)
+    def _commit(self):
+        pass
+        #data = packb({
+        #    'values': self.values,
+        #})
+
+        #self.tree.chunk.write(ChunkId.Leaf, data)
+        #return self.tree.chunk.tell()
 
     def __getitem__(self, key):
 
-        print('hi')
-        print (self.bucket)
-        return self.bucket[key]
+        if key in self.bucket:
+            return self.bucket[key]
 
+        raise LookupError
+
+    def __len__(self):
+        return len(self.bucket)
 
     def __iter__(self):
         for key in self.bucket:
             yield key
-
-
-    def __len__(self):
-        return len(self.bucket)
 
 class LazyNode(object):
     _init = False
@@ -259,29 +263,36 @@ class LazyNode(object):
 
         setattr(self.node, name, value)
 
-
-def printTree(tree):
+def visualTree(tree):
+    """
+    Prints a visual representation of the tree
+    :param tree:
+    :return:
+    """
 
     import queue as q
-
-    print("-- Tree --")
 
     queue = q.Queue()
 
     depth = 0
     prevdepth = -1
 
-    atcurrentdepth = 1
     atdepth = [1,0]
     currentdepth = 0;
 
+    # At the root to the queue
     queue.put(tree.root)
 
-    while queue.empty() != True:
+    print("-- Root --")
+
+    while not queue.empty():
         node = queue.get()
         atdepth[currentdepth] -= 1
-        print (node)
-        bucket = node.bucket
+
+        # check if node is not a str instance
+        if (isinstance(node, str)):
+            return
+
 
         if depth != prevdepth:
             print("--- d=" + str(depth) + " ---")
@@ -291,76 +302,52 @@ def printTree(tree):
             queue.put(node.rest)
             atdepth[(currentdepth + 1) % 2] += 1
 
-            print(str(bucket) + " - lhs: " +  str(node.rest))
+            print(str(node.bucket) + " - lhs: " +  str(node.rest))
         else:
-            print(str(bucket))
+            print(str(node.bucket))
 
-
-        if bucket != None:
-            for i in range(0, len(bucket)):
-                print(tree.__getitem__(bucket.iloc[i]))
-                if type(bucket[bucket.iloc[i]]) != int:
+        if node.bucket != None:
+            for i in range(0, len(node.bucket)):
+                #print(tree.__getitem__(bucket.iloc[i]))
+                if type(node.bucket[node.bucket.iloc[i]]) != int:
                     queue.put(node.bucket[node.bucket.iloc[i]])
                     atdepth[(currentdepth + 1) % 2] += 1
-
 
         if atdepth[currentdepth] == 0:
             depth += 1
             currentdepth = (currentdepth + 1) % 2
 
-def main():
-
-    # Load the tree from disk and perform some tests, like inserting a new key
-    # or retrieving a key.
-
-    tree = Tree(4)
-
-    tree["dockey"] = "testdoc"
-    tree["foo"] = "this"
-    tree["bar"] = "is"
-    tree["what"] = "for"
-    tree["up"] = "testing"
-
-    tree["test11"] = "bla11"
-    tree["test22"] = "bla22"
-    tree["test33"] = "bla33"
-    tree["test44"] = "bla44"
-    tree["test55"] = "bla55"
-    tree["test66"] = "bla66"
-    tree["test77"] = "bla77"
-    tree["test88"] = "bla88"
-    tree["test99"] = "bla98"
-    tree["test12"] = "bla11"
-    tree["test23"] = "bla22"
-    tree["test34"] = "bla33"
-    tree["test45"] = "bla44"
-    tree["test56"] = "bla55"
-    tree["test67"] = "bla66"
-    tree["test78"] = "bla77"
-    tree["test89"] = "bla88"
-    tree["test79"] = "bla98"
-    tree["test71"] = "bla11"
-    tree["test72"] = "bla22"
-    tree["test73"] = "bla33"
-    tree["test74"] = "bla44"
-    tree["test75"] = "bla55"
-    tree["test76"] = "bla66"
-    tree["test77"] = "bla77"
-    tree["test68"] = "bla88"
-    tree["test55"] = "bla98"
+def fillTree(tree):
+    tree["1"] = "Value1"
+    tree["2"] = "Value2"
+    tree["3"] = "Value3"
+    tree["4"] = "Value4"
+    tree["5"] = "Value5"
+    tree["6"] = "Value6"
+    tree["7"] = "Value7"
+    tree["8"] = "Value8"
+    tree["9"] = "Value9"
+    tree["10"] = "Value10"
+    tree["11"] = "Value11"
+    tree["12"] = "Value12"
+    tree["13"] = "Value13"
+    tree["14"] = "Value14"
+    tree["15"] = "Value15"
+    tree["16"] = "Value16"
 
     tree._commit()
 
-    print("all keys: ", str([key for key in tree]))
+def main():
 
-    print(tree.__getitem__("dockey"))
+    tree = Tree(max_size=4)
+    fillTree(tree)
 
-    printTree(tree)
+    try:
+        print(tree.__getitem__("1"))
+    except LookupError:
+        print('Key not found!')
 
-    # tree._commit()
-
-    # compaction(tree)
-    #print("Get document: ", str(tree.__getitem__(b"Testkey")))
+    visualTree(tree)
 
 if __name__ == '__main__':
     main()
