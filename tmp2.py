@@ -9,7 +9,7 @@ class Tree(MutableMapping):
 
     @staticmethod
     def _create_leaf(*args, **kwargs):
-        return Leaf(*args, **kwargs)
+        return LazyNode(node=Leaf(tree=kwargs.get('tree')), tree=kwargs.get('tree'))
 
     @staticmethod
     def _create_node(*args, **kwargs):
@@ -121,9 +121,9 @@ class Node(BaseNode):
         return super()._insert(key, other)
 
     def _split(self):
-        #other = LazyNode(node=Node(tree=self.tree, changed=True),
-        #    tree=self.tree)
-        other = Node(self.tree)
+        other = LazyNode(node=Node(tree=self.tree, changed=True),
+            tree=self.tree)
+        #other = Node(self.tree)
 
         values = self.bucket.items()
         self.bucket = SortedDict(values[:len(values) // 2])
@@ -171,9 +171,9 @@ class Node(BaseNode):
 
 class Leaf(BaseNode, Mapping):
     def _split(self):
-        #other = LazyNode(node=Leaf(tree=self.tree, changed=True),
-        #    tree=self.tree)
-        other = Leaf(self.tree, True)
+        other = LazyNode(node=Leaf(tree=self.tree, changed=True),
+            tree=self.tree)
+        #other = Leaf(self.tree, True)
 
         values = self.bucket.items()
         self.bucket = SortedDict(values[:len(values) // 2])
@@ -205,61 +205,72 @@ class Leaf(BaseNode, Mapping):
             yield key
 
 class LazyNode(object):
-    _init = False
+    def __init__(self, tree, offset=None, node=None):
+        super().__setattr__('tree', tree)
+        super().__setattr__('offset', offset)
+        super().__setattr__('node', node)
 
-    def __init__(self, offset=None, node=None):
-        """
-        Sets up a proxy wrapper for a node at a certain disk offset.
-        """
-        self.offset = offset
-        self.node = node
-        self._init = True
+    def _load_node(self, data):
+        data = unpackb(data)
 
-    @property
-    def changed(self):
-        """
-        Checks if the node has been changed.
-        """
-        if self.node is None:
-            return False
+        self.node = Node(tree=self.tree)
+        self.node.rest = LazyNode(offset=data[b'rest'], tree=self.tree)
+        self.node.values = SortedDict({k: LazyNode(offset=v, tree=self.tree) for
+            k, v in data[b'values'].items()})
 
-        return self.node.changed
+    def _load_leaf(self, data):
+        data = unpackb(data)
+
+        self.node = Leaf(tree=self.tree)
+        self.node.values = SortedDict(data[b'values'])
+
+    def _load(self):
+        callbacks = {
+            ChunkId.Node: self._load_node,
+            ChunkId.Leaf: self._load_leaf,
+        }
+
+        self.tree.chunk.seek(self.offset)
+        callback = callbacks.get(self.tree.chunk.get_id())
+
+        if callback:
+            callback(self.tree.chunk.read())
 
     def _commit(self):
-        """
-        Commit the changes if the node has been changed.
-        """
         if not self.changed:
             return
 
-        self.node._commit()
-        self.changed = False
-
-    def _load(self):
-        """
-        Load the node from disk.
-        """
-        pass
+        self.offset = self.node._commit()
 
     def __getattr__(self, name):
-        """
-        Loads the node if it hasn't been loaded yet, and dispatches the request
-        to the node.
-        """
-        if not self.node:
-            self.node = self._load()
+        if self.node is None:
+            self._load()
 
         return getattr(self.node, name)
 
     def __setattr__(self, name, value):
-        """
-        Dispatches the request to the node, if the proxy wrapper has been fully
-        set up.
-        """
-        if not self._init or hasattr(self, name):
+        if name in self.__dict__:
             return super().__setattr__(name, value)
 
         setattr(self.node, name, value)
+
+    def __getitem__(self, key):
+        if self.node is None:
+            self._load()
+
+        return self.node[key]
+
+    def __iter__(self):
+        if self.node is None:
+            self._load()
+
+        yield from self.node.__iter__()
+
+    def __len__(self):
+        if self.node is None:
+            self._load()
+
+        return len(self.node)
 
 def visualTree(tree):
     """
