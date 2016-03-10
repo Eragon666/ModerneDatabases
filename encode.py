@@ -5,5 +5,4 @@ def encode(data):
     return compress(packb(data))
 
 def decode(data):
-    print(data)
     return unpackb(decompress(data))
