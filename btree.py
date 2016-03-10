@@ -1,18 +1,12 @@
 from collections import Mapping, MutableMapping
 from sortedcontainers import SortedDict
-from msgpack import packb, unpackb
-from encode import *
-
-import drawtree
 
 
 class Tree(MutableMapping):
+
     def __init__(self, max_size=1024):
         self.root = self._create_leaf(tree=self)
         self.max_size = max_size
-
-    def commit(self):
-        self.root._commit()
 
     @staticmethod
     def _create_leaf(*args, **kwargs):
@@ -30,7 +24,7 @@ class Tree(MutableMapping):
         return root
 
     def __getitem__(self, key):
-        return self.root[key]
+        pass
 
     def __setitem__(self, key, value):
         """
@@ -38,32 +32,22 @@ class Tree(MutableMapping):
         split, creates a new root node with pointers to this node and the new
         node that resulted from splitting.
         """
-        result = self.root._insert(key, value)
-
-        if result is None:
-            return
-
-        key, value = result
-        root = Node(self, True)
-        root.rest = self.root
-        root.values[key] = value
-
-        self.root = root
+        pass
 
     def __delitem__(self, key):
-        raise NotImplementedError
+        pass
 
     def __iter__(self):
-        for key in self.root:
-            yield key
+        pass
 
     def __len__(self):
-        return len(self.root)
+        pass
+
 
 class BaseNode(object):
-    def __init__(self, tree, changed=False):
+
+    def __init__(self, tree):
         self.tree = tree
-        self.changed = changed
         self.bucket = SortedDict()
 
     def _split(self):
@@ -73,32 +57,20 @@ class BaseNode(object):
         in the bucket of the current node. The higher keys are being stored in
         the bucket of the new node. Afterwards, the new node is being returned.
         """
+        other = self.__class__()
 
-        other = Node(self.tree, True)
-        values = self.values.items()
-        self.values = SortedDict(values[:len(values // 2)])
-        other.values = SortedDict(values[len(values) // 2:])
-
-        key, value = other.values.popitem(last=False)
-        other.rest = value
-
-        return (key, other)
+        return
 
     def _insert(self, key, value):
         """
         Inserts the key and value into the bucket. If the bucket has become too
         large, the node will be split into two nodes.
         """
+        pass
 
-        self.values[key] = value
-        self.changed = True
-
-        if len(self.values) < self.tree.max_size:
-            return None
-
-        return self._split()
 
 class Node(BaseNode):
+
     def __init__(self, *args, **kwargs):
         self.rest = None
 
@@ -108,28 +80,6 @@ class Node(BaseNode):
         """
         Selects the bucket the key should belong to.
         """
-        print(self.tree.root)
-        print(self.bucket)
-
-        print(min(self.bucket))
-        print(self.bucket.values())
-
-        if key < min(self.bucket):
-            print('first if')
-            new_node = self.rest
-            return new_node
-        elif key >= max(self.bucket):
-            print('second if')
-            new_node = self.bucket.values()[-1]
-            return new_node
-
-        print('loop')
-
-        for i in range(0, len(self.bucket.keys())-1):
-            if key >= self.bucket.keys()[i] and key < self.bucket.keys()[i + 1]:
-                new_node = self.bucket.values()[i]
-                return new_node
-
         pass
 
     def _insert(self, key, value):
@@ -139,60 +89,20 @@ class Node(BaseNode):
         node has been split, it inserts the key of the newly created node into
         the bucket of this node.
         """
+        pass
 
-        result = self._select(key)._insert(key, value)
-        self.changed = True
-
-        if result is None:
-            return
-
-        key, other = result
-        return super()._insert(key, other)
-
-    def _commit(self):
-        self.rest._commit()
-
-        for child in self.values.values():
-            child._commit()
-
-        data = packb({
-            'rest': self.rest.offset,
-            'values': {k: v.offset for k, v in self.values.items()},
-        })
-
-        self.tree.chunk.write(ChunkId.node, data)
-        return self.tree.chunk.tell()
-
-    def __getitem__(self, key):
-        return self._select(key)[key]
 
 class Leaf(Mapping, BaseNode):
+
     def __getitem__(self, key):
-        return self.values[key]
+        pass
 
     def __iter__(self):
-        for key in self.values:
-            yield key
+        pass
 
     def __len__(self):
-        return len(self.values)
+        pass
 
-    def _split(self):
-        other = Node(self.tree, True)
-
-        values = self.values.items()
-        self.values = SortedDict(values[:len(values) // 2])
-        other.values = SortedDict(values[len(values) // 2:])
-
-        return (min(other.values), other)
-
-    def _commit(self):
-        data = packb({
-            'values': self.values,
-        })
-
-        self.tree.chunk.write(ChunkId.Leaf, data)
-        return self.tree.chunk.tell()
 
 class LazyNode(object):
     _init = False
@@ -250,22 +160,3 @@ class LazyNode(object):
             return super().__setattr__(name, value)
 
         setattr(self.node, name, value)
-
-def main():
-    mytree = Tree()
-
-    mytree.__setitem__(1, "one")
-
-    #drawtree.printTree(mytree)
-
-    #base = BaseNode(mytree);
-    #node = Node(mytree)
-    #node._insert(4, "two")
-
-    #print(node._insert(6, "Six"))
-
-
-    print("Hello World!")
-
-if __name__ == '__main__':
-    main()
