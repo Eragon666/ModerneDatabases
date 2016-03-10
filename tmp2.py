@@ -1,5 +1,6 @@
 from collections import Mapping, MutableMapping
 from sortedcontainers import SortedDict
+import queue as q
 
 class Tree(MutableMapping):
     def __init__(self, max_size=1024):
@@ -45,7 +46,7 @@ class Tree(MutableMapping):
         self.root = root
 
     def __delitem__(self, key):
-        pass
+        raise NotImplementedError
 
     def __iter__(self):
         return len(self.root)
@@ -59,17 +60,6 @@ class BaseNode(object):
         self.tree = tree
         self.bucket = SortedDict()
         self.changed = changed
-
-    #def _split(self):
-    #    """
-    #    Creates a new node of the same type and splits the contents of the
-    #    bucket into two parts of an equal size. The lower keys are being stored
-    #    in the bucket of the current node. The higher keys are being stored in
-    #    the bucket of the new node. Afterwards, the new node is being returned.
-    #    """
-    #    other = self.__class__()
-
-    #    return
 
     def _insert(self, key, value):
         """
@@ -99,6 +89,14 @@ class Node(BaseNode):
         Selects the bucket the key should belong to.
         """
 
+        # If the key is smaller than the min or larger than the max, immediately return.
+        if key < min(self.bucket):
+            return self.rest
+
+        elif key >= max(self.bucket):
+            return self.bucket.values()[-1]
+
+        # Else find the correct node
         for k, v in reversed(list(self.bucket.items())):
             if k <= key:
                 return v
@@ -270,15 +268,13 @@ def visualTree(tree):
     :return:
     """
 
-    import queue as q
-
     queue = q.Queue()
 
     depth = 0
     prevdepth = -1
 
     atdepth = [1,0]
-    currentdepth = 0;
+    cur = 0;
 
     # At the root to the queue
     queue.put(tree.root)
@@ -287,35 +283,35 @@ def visualTree(tree):
 
     while not queue.empty():
         node = queue.get()
-        atdepth[currentdepth] -= 1
+        atdepth[cur] -= 1
 
         # check if node is not a str instance
         if (isinstance(node, str)):
             return
 
-
         if depth != prevdepth:
             print("--- d=" + str(depth) + " ---")
             prevdepth = depth
 
+        # For none leaf nodes, and if it has a rest attr print it with the left hand side pointer
         if type(node) is not Leaf and hasattr(node, 'rest') and node.rest != None:
-            queue.put(node.rest)
-            atdepth[(currentdepth + 1) % 2] += 1
-
             print(str(node.bucket) + " - lhs: " +  str(node.rest))
+            queue.put(node.rest)
+            atdepth[(cur + 1) % 2] += 1
         else:
             print(str(node.bucket))
 
+        # Add the other neighboring nodes to the queue
         if node.bucket != None:
             for i in range(0, len(node.bucket)):
                 #print(tree.__getitem__(bucket.iloc[i]))
                 if type(node.bucket[node.bucket.iloc[i]]) != int:
                     queue.put(node.bucket[node.bucket.iloc[i]])
-                    atdepth[(currentdepth + 1) % 2] += 1
+                    atdepth[(cur + 1) % 2] += 1
 
-        if atdepth[currentdepth] == 0:
+        if atdepth[cur] == 0:
             depth += 1
-            currentdepth = (currentdepth + 1) % 2
+            cur = (cur + 1) % 2
 
 def fillTree(tree):
     tree["1"] = "Value1"
