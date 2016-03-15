@@ -1,8 +1,5 @@
-from tornado import httpserver
-from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado import template
-import sqlite3 as sqlite
 import tornado.web
 
 import json, os
@@ -20,10 +17,18 @@ class StoreHandler(tornado.web.RequestHandler):
 
     def get(self):
         db = Database('test.db', max_size=4)
+
+        self.set_status(200)
+
+        i = 0
+
         for k, v in db.items():
-            self.write(str(k) + ': ' + str(v.decode('utf-8')) + '\n')
+            i += 1
+            self.write(str(k) + ": " + str(v.decode('utf-8')) + "\n")
 
         db.close()
+
+        self.finish("Succesfully retrieved all " + str(i) + " items from the database.\n")
 
     def post(self):
         data = self.request.body
@@ -38,9 +43,10 @@ class StoreHandler(tornado.web.RequestHandler):
 
         db.commit()
 
-        self.write('Document inserted in key ' + str(key) + '\n')
-
         db.close()
+
+        self.set_status(200)
+        self.finish("Document inserted in key " + str(key) + "\n")
 
     def put(self):
         # The old file can be deleted. Put will replace all the content.
@@ -62,11 +68,14 @@ class StoreHandler(tornado.web.RequestHandler):
 
         db.close()
 
+        self.set_status(200)
+        self.finish("PUT action successfull\n")
+
 
     def delete(self):
         self.clear()
         self.set_status(501)
-        self.finish("<html><body>Method not Implemented</body></html>")
+        self.finish("Method not Implemented\n")
 
 
 class ApiInterface(tornado.web.RequestHandler):
