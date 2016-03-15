@@ -5,6 +5,10 @@ from tornado import template
 import sqlite3 as sqlite
 import tornado.web
 
+import sys
+
+from yamr import Database, Chunk, Tree
+
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.write('Hello, world!')
@@ -27,8 +31,12 @@ class StoreHandler(tornado.web.RequestHandler):
 class ApiInterface(tornado.web.RequestHandler):
     def get(self):
 
+        db = Database('test.db', max_size=4)
+
         loader = template.Loader("templates")
-        self.write(loader.load("index.html").generate(myvalue="Wow this is awesome VIA", alert=None, current_user="anonymous"))
+        self.write(loader.load("index.html").generate(db=db, alert=None, current_user="anonymous"))
+
+        db.close()
 
         #t = template.Template("<html>{{ myvalue }}</html>")
         #self.write(t.generate(myvalue="XXX"))

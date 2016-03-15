@@ -5,5 +5,14 @@
 {% block title %}API Interface{% end %}
 
 {% block content %}
-  <li><span style="bold">{{ myvalue }}</span></li>
+
+    <h1>Alles uit de database</h1>
+
+    <ul>
+
+    {% for k, v in db.items() %}
+        <li>{{ k }}: {{ v }}</li>
+    {% end %}
+
+    </ul>
 {% end %}

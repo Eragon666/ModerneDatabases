@@ -9,7 +9,7 @@ from collections import Mapping, MutableMapping
 from msgpack import packb, unpackb
 from sortedcontainers import SortedDict
 
-from chunk import ChunkId
+from .chunk import ChunkId
 
 class Tree(MutableMapping):
     def __init__(self, chunk, max_size=1024):
