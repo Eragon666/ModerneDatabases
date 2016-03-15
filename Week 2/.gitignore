@@ -1,3 +1,4 @@
 *.xml
 .idea/
 yamr/__pycache__/
+*.db
