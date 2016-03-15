@@ -85,7 +85,7 @@ class ApiInterface(tornado.web.RequestHandler):
         db = Database('test.db', max_size=4)
 
         loader = template.Loader("templates")
-        self.write(loader.load("index.html").generate(db=db, alert=None, current_user="anonymous"))
+        self.write(loader.load("index.html").generate(db=db, alert=None))
 
         db.close()
 
