@@ -34,36 +34,14 @@ class ApiInterface(tornado.web.RequestHandler):
         db = Database('test.db', max_size=4)
 
         loader = template.Loader("templates")
-        self.write(loader.load("index.html").generate(db=db, alert=None, current_user="anonymous"))
+        self.write(loader.load("index.html").generate(db=db, alert="Hallo Xander", alert_type="success", current_user="anonymous"))
 
         db.close()
-
-        #t = template.Template("<html>{{ myvalue }}</html>")
-        #self.write(t.generate(myvalue="XXX"))
 
     def post(self):
         self.clear()
         self.set_status(405)
         self.finish("<html><body>POST not supported!</body></html>")
-
-def verifyDatabase():
-    conn = sqlite.connect('cars.db')
-    c = conn.cursor()
-    try:
-        c.execute('SELECT * FROM cars')
-        print('Table already exists')
-    except:
-        print('Creating table \'cars\'')
-        c.execute('CREATE TABLE cars (\
-            id text,\
-            make text,\
-            model text,\
-            year text,\
-            trans text,\
-            color text)')
-        print('Successfully created table \'cars\'')
-    conn.commit()
-    conn.close()
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -76,8 +54,6 @@ class Application(tornado.web.Application):
         tornado.web.Application.__init__(self, handlers)
 
 def main():
-
-    verifyDatabase()
 
     app = Application()
     app.listen(8080)

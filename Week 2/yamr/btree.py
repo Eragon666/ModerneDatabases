@@ -1,6 +1,5 @@
 """
 Author: S.J.R. van Schaik <stephan@synkhronix.com>
-
 Reference implementation of a hybrid on-disk and in-memory B+ tree with lazily
 loaded nodes.
 """
@@ -30,7 +29,7 @@ class Tree(MutableMapping):
             return
 
         key, value = result
-        root = LazyNode(node=Node(tree=self), tree=self)
+        root = LazyNode(node=Node(tree=self, changed=True), tree=self)
         root.rest = self.root
         root.values[key] = value
 
@@ -65,8 +64,8 @@ class BaseNode(object):
         pass
 
 class Node(BaseNode, Mapping):
-    def __init__(self, tree):
-        super().__init__(tree)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.rest = None
 
     def _select(self, key):
@@ -87,7 +86,8 @@ class Node(BaseNode, Mapping):
         return super()._insert(key, other)
 
     def _split(self):
-        other = LazyNode(Node(tree=self.tree, changed=True), tree=self.tree)
+        other = LazyNode(node=Node(tree=self.tree, changed=True),
+            tree=self.tree)
 
         values = self.values.items()
         self.values = SortedDict(values[:len(values) // 2])
@@ -223,4 +223,3 @@ class LazyNode(object):
             self._load()
 
         return len(self.node)
-

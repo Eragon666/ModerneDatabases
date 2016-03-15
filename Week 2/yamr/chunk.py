@@ -1,6 +1,5 @@
 """
 Author: S.J.R. van Schaik <stephan@synkhronix.com>
-
 Abstraction to read and write chunks from and to files.
 """
 
@@ -65,7 +64,7 @@ class Chunk(object):
 
         data = self.f.read(self.size)
         self.f.seek(-len(data), SEEK_CUR)
-        
+
         return data
 
     def write(self, _id, data):
@@ -79,9 +78,11 @@ class Chunk(object):
         data = self.struct.pack(self._id, self.size, self.checksum) + data
         self.f.write(data)
 
+    def flush(self):
+        self.f.flush()
+
     def next(self):
         self.seek(self.size, SEEK_CUR)
-    
+
     def close(self):
         self.f.close()
-
