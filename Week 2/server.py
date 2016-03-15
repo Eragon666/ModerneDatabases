@@ -9,13 +9,21 @@ import json, os
 
 from yamr import Database, Chunk, Tree
 
+
 class MainHandler(tornado.web.RequestHandler):
+
     def get(self):
         self.write('Hello, world!')
 
+
 class StoreHandler(tornado.web.RequestHandler):
+
     def get(self):
-        self.write('GET - Welcome to our document store!')
+        db = Database('test.db', max_size=4)
+        for k, v in db.items():
+            self.write(str(k) + ': ' + str(v.decode('utf-8')) + '\n')
+
+        db.close()
 
     def post(self):
         data = self.request.body
@@ -60,7 +68,9 @@ class StoreHandler(tornado.web.RequestHandler):
         self.set_status(501)
         self.finish("<html><body>Method not Implemented</body></html>")
 
+
 class ApiInterface(tornado.web.RequestHandler):
+
     def get(self):
 
         db = Database('test.db', max_size=4)
@@ -75,15 +85,19 @@ class ApiInterface(tornado.web.RequestHandler):
         self.set_status(405)
         self.finish("<html><body>POST not supported!</body></html>")
 
+
 class Application(tornado.web.Application):
+
     def __init__(self):
         handlers = [
             (r"/?", ApiInterface),
             (r"/api/v1/document/?", StoreHandler),
-            (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': 'static'}),
+            (r'/static/(.*)', tornado.web.StaticFileHandler,
+             {'path': 'static'}),
             (r"/api/v1/document/[0-9][0-9][0-9][0-9]/?", StoreHandler)
         ]
         tornado.web.Application.__init__(self, handlers)
+
 
 def main():
 
