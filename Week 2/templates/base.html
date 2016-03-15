@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <title>{% block title %}Interface API{% end %}</title>
+
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap-theme.min.css">
+    <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css" />
+    <link rel="stylesheet" href="//weblibraries.s3.amazonaws.com/jquery.pnotify.default.css">
+    <link rel="stylesheet" href="//weblibraries.s3.amazonaws.com/jquery.pnotify.default.icons.css">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
+    <link rel="stylesheet" href="/static/css/custom.css">
+    <style type="text/css">
+        body {
+            padding-top: 60px;
+            padding-bottom: 40px;
+        }
+        ul.social-icons {
+            font-size: 15px;
+            padding-top: 2px;
+        }
+    </style>
+</head>
+
+<body>
+{% include "header.html" %}
+
+<div class="container">
+    {% if alert is not None %}
+    <div class="alert {{ alert_type }} alert-dismissable">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+        {{ alert }}
+    </div>
+    {% end %}
+
+    <div class="row">
+        <div class="col-xs-8 col-md-8 col-lg-8">
+
+            {% block content %}{% end %}
+        </div>
+
+        <div class="col-xs-4 col-md-4 col-lg-4">
+        </div>
+    </div>
+
+    <hr/>
+</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
+<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.0/js/bootstrap.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/jquery.pnotify.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/jquery.maskedinput.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/jquery.tablesorter.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/jquery.form.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/moment.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/ba-linkify.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/hmac-sha256.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/enc-base64.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/secret-rest-client.min.js"></script>
+<script src="//weblibraries.s3.amazonaws.com/secret-data-table.min.js"></script>
+<!--<script src="/static/js/custom.js"></script>-->
+<script language="JavaScript">
+    $(document).ready(function() {
+        {% if not current_user or current_user == 'None' %}
+        var links = $("a.current-url").each(function() {
+            if ($(this).attr("href").endsWith("?next=")) {
+                $(this).attr("href", $(this).attr("href") + currentUrl());
+            }
+        });
+        {% else %}
+        {% end %}
+    });
+</script>
+{% block js %}{% end %}
+</body>
+</html>
