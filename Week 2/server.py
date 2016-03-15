@@ -15,6 +15,14 @@ class CarHandler(tornado.web.RequestHandler):
     def post(self):
         self.write('POST - Welcome to the post document store!')
 
+    def put(self):
+        self.write('PUT - Welcome to our document store!')
+
+    def delete(self):
+        self.clear()
+        self.set_status(501)
+        self.finish("<html><body>Method not Implemented</body></html>")
+
 def verifyDatabase():
     conn = sqlite.connect('cars.db')
     c = conn.cursor()
