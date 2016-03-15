@@ -226,7 +226,7 @@ class LazyNode(object):
     def __iter__(self):
         if self.node is None:
             self._load()
-
+            
         yield from self.node.__iter__()
 
     def __len__(self):
