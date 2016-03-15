@@ -5,7 +5,7 @@ from tornado import template
 import sqlite3 as sqlite
 import tornado.web
 
-import sys
+import json, os
 
 from yamr import Database, Chunk, Tree
 
@@ -18,10 +18,42 @@ class StoreHandler(tornado.web.RequestHandler):
         self.write('GET - Welcome to our document store!')
 
     def post(self):
-        self.write('POST - Welcome to the post document store!')
+        data = self.request.body
+        value = data.decode("utf-8")
+
+        db = Database('test.db', max_size=4)
+
+        # Get the last key in the database.
+        key = max(db.keys(), key=int) + 1
+
+        db[int(key)] = value
+
+        db.commit()
+
+        self.write('Document inserted in key ' + str(key) + '\n')
+
+        db.close()
 
     def put(self):
-        self.write('PUT - Welcome to our document store!')
+        # The old file can be deleted. Put will replace all the content.
+
+        if os.path.isfile('test.db'):
+            os.remove('test.db')
+
+        # Load the data from the request and decode to utf-8
+        data = self.request.body
+        data_json = json.loads(data.decode("utf-8"))
+
+        db = Database('test.db', max_size=4)
+
+        # Add all the items to the new database
+        for k, v in data_json.items():
+            db[int(k)] = v
+
+        db.commit()
+
+        db.close()
+
 
     def delete(self):
         self.clear()
@@ -34,7 +66,7 @@ class ApiInterface(tornado.web.RequestHandler):
         db = Database('test.db', max_size=4)
 
         loader = template.Loader("templates")
-        self.write(loader.load("index.html").generate(db=db, alert="Hallo Xander", alert_type="success", current_user="anonymous"))
+        self.write(loader.load("index.html").generate(db=db, alert=None, current_user="anonymous"))
 
         db.close()
 
