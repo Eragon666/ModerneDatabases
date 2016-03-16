@@ -1,0 +1,41 @@
+### mapreduce.html
+
+{% extends "base.html" %}
+
+{% block title %}MapReduce Interface{% end %}
+
+{% block content %}
+
+    <h1>Execute MapReduce functions on the database</h1>
+
+    <ul>
+
+    </ul>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="comment">Map:</label>
+                <textarea class="form-control" rows="5" id="map-data"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="comment">Reduce:</label>
+                <textarea class="form-control" rows="5" id="reduce-data"></textarea>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <button type="submit" class="btn btn-default" id="submit-mapreduce">MapReduce</button>
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-md-6" id="sandbox"></div>
+    </div>
+{% end %}

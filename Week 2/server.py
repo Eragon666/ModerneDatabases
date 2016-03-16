@@ -186,6 +186,25 @@ class ApiInterface(tornado.web.RequestHandler):
         self.set_status(405)
         self.finish("<html><body>POST not supported!</body></html>")
 
+class MapReduceInterface(tornado.web.RequestHandler):
+    """
+    Class for handling actions in the web interface
+    """
+
+    def get(self):
+
+        db = getDb()
+
+        loader = template.Loader("templates")
+        self.write(loader.load("mapreduce.html").generate(db=db, alert=None))
+
+        CloseDb(db)
+
+    def post(self):
+        self.clear()
+        self.set_status(405)
+        self.finish("<html><body>POST not supported!</body></html>")
+
 
 
 class CompactionHandler(tornado.web.RequestHandler):
@@ -211,11 +230,14 @@ class MapHandler(tornado.web.RequestHandler):
 
     def post(self):
 
+        mapscript = self.get_argument('mapscript', None)
+        reducescript = self.get_argument('reducescript', None)
+
         emitfile = self.get_argument('emit', 'emit.py')
         reducefile = self.get_argument('reduce', 'reduce.py')
 
         mr = MapReduce()
-        mr.map(self, emitfile, reducefile)
+        mr.map(self, emitfile, reducefile, mapscript, reducescript)
         mr.mapResult(self)
 
     def get(self):
@@ -249,9 +271,10 @@ class ReduceHandler(tornado.web.RequestHandler):
     def post(self):
 
         reducefile = self.get_argument('reduce', 'reduce.py')
+        script = self.get_argument('script', None)
 
         mr = MapReduce()
-        mr.reduce(self, reducefile)
+        mr.reduce(self, reducefile, script)
         mr.reduceResult(self)
 
     def get(self):
@@ -272,15 +295,32 @@ class ReduceResultHandler(tornado.web.RequestHandler):
         mr.reduceResult(self)
 
 class MapReduce():
+    """
+    This class contains all functions for Map Reduce
+    """
 
-    def map(self, web, emitfile, reducefile):
+    def map(self, web, emitfile, reducefile, emitscript, reducescript):
 
         removeFile('emit.db')
 
         # Open a new asteval wrapper and add the necessary files
         mrScript = Script()
-        mrScript.add_file(emitfile)
-        mrScript.add_file(reducefile)
+
+        # Load from files if emitscript is None
+        if emitscript is None:
+            mrScript.add_file(emitfile)
+            mrScript.add_file(reducefile)
+            if len(mrScript.interpreter.error) > 0:
+                web.write('Incorrect MapReduce file(s)\n')
+                web.write(str(mrScript.interpreter.error[0].get_error()))
+
+        else:
+            mrScript.add_scriptstring(emitscript)
+            mrScript.add_scriptstring(reducescript)
+            if len(mrScript.interpreter.error) > 0:
+                web.write('Incorrect MapReduce file(s)\n')
+                web.write(str(mrScript.interpreter.error[0].get_error()))
+
         mrScript.symtable['emit_dict'] = {}
 
         db = getDb()
@@ -306,7 +346,7 @@ class MapReduce():
         CloseDb(db)
         CloseDb(tmp_db)
 
-        web.write("Map function executed!\n")
+        web.write("Map function executed!<br>\n")
 
     def mapResult(self, web):
         # Retrieve the tmp database used for storing the results of the mapper
@@ -315,18 +355,22 @@ class MapReduce():
         web.set_status(200)
 
         for k,v in tmp_db.items():
-            web.write(str(k) + ': ' + str(v) + '\n')
+            web.write(str(k) + ': ' + str(v) + '<br>\n')
 
         web.finish("All items retrieved\n")
 
         CloseDb(tmp_db)
 
-    def reduce(self, web, reducefile):
+    def reduce(self, web, reducefile, script):
         # Remove the file from the previous reduce
         removeFile('reduce.db')
 
         mrScript = Script()
-        mrScript.add_file(reducefile)
+
+        if script is None:
+            mrScript.add_file(reducefile)
+        else:
+            mrScript.add_scriptstring(script)
 
         # Get the emit database and make a new reduce database
         tmp_db = getDb('emit.db')
@@ -363,6 +407,7 @@ class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
             (r"/?", ApiInterface),
+            (r"/mapreduce/?", MapReduceInterface),
             (r"/api/v1/documents", StoreHandler),
             (r"/api/v1/document/([0-9]+)", SingleStoreHandler),
             (r'/static/(.*)', tornado.web.StaticFileHandler,

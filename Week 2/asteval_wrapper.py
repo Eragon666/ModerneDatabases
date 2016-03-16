@@ -34,6 +34,14 @@ class Script(object):
         with open(path, 'rb') as f:
             self.interpreter(f.read())
 
+    def add_scriptstring(self, string):
+        """
+        Adds code from a script string
+        :param string: script
+        :return:
+        """
+        self.interpreter(string)
+
     def invoke(self, name, *args, **kwargs):
         """
         Invokes a function in the script with the appropriate arguments.
