@@ -21,24 +21,31 @@ def CloseDb(db):
     """
     db.close()
 
-def DbGetItems():
+def DbGetItems(key = None):
     """
-    Get a list of all the items in the database
+    Get a list of all the items in the database. If key is given, only the
+    item with the given key is returned
     :return: List with all DB items
     """
     db = getDb()
 
-    items = db.items()
+    print(key)
 
-    itemArray = []
+    if key is None:
 
-    for k, v in items:
-        itemArray.append([str(k), str(v.decode('utf-8'))])
-        #self.write(str(k) + ": " + str(v.decode('utf-8')) + "\n")
+        items = db.items()
+
+        result = []
+
+        for k, v in items:
+            result.append([str(k), str(v.decode('utf-8'))])
+
+    else:
+        result = db[int(key)].decode('utf-8')
 
     CloseDb(db)
 
-    return itemArray
+    return result
 
 def DbPostItems(value):
     """
@@ -82,7 +89,7 @@ class StoreHandler(tornado.web.RequestHandler):
 
     def get(self):
 
-        items = DbGetItems()
+        items = DbGetItems(None)
         self.set_status(200)
         i = 0
 
@@ -122,8 +129,35 @@ class StoreHandler(tornado.web.RequestHandler):
 
 class SingleStoreHandler(tornado.web.RequestHandler):
 
-    def get(self):
-        pass
+    def get(self, key):
+        """
+        Retrieve a document with the given key
+        :param key:
+        :return:
+        """
+
+        result = DbGetItems(key)
+
+        self.set_status(200)
+        self.finish("Requested key " + key + " gives back value = " + result + "\n")
+
+    def put(self, key):
+        data = self.request.body
+        data_json = data.decode("utf-8")
+
+        db = getDb()
+
+        if int(key) in db:
+            db[int(key)] = data_json
+            self.set_status(200)
+            self.finish("Document with key = " + key + " updated to the received value.\n")
+        else:
+            self.set_status(409)
+            self.finish("Key " + key + " does not exist!\n")
+
+        db.commit()
+
+        CloseDb(db)
 
 
 class ApiInterface(tornado.web.RequestHandler):
@@ -145,6 +179,8 @@ class ApiInterface(tornado.web.RequestHandler):
         self.set_status(405)
         self.finish("<html><body>POST not supported!</body></html>")
 
+
+
 class CompactionHandler(tornado.web.RequestHandler):
 
     def get(self):
@@ -160,19 +196,16 @@ class CompactionHandler(tornado.web.RequestHandler):
         self.set_status(200)
         self.finish('Compaction of database was succesfull.')
 
-
-
-
 class Application(tornado.web.Application):
 
     def __init__(self):
         handlers = [
             (r"/?", ApiInterface),
-            (r"/api/v1/document/?", StoreHandler),
+            (r"/api/v1/documents", StoreHandler),
+            (r"/api/v1/document/([0-9]+)", SingleStoreHandler),
             (r'/static/(.*)', tornado.web.StaticFileHandler,
              {'path': 'static'}),
-            (r"/api/v1/document/[0-9]+", SingleStoreHandler),
-            (r"/api/v1/document/compaction", CompactionHandler)
+            (r"/api/v1/documents/compact", CompactionHandler)
         ]
         tornado.web.Application.__init__(self, handlers)
 

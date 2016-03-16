@@ -11,7 +11,7 @@ function put() {
 
     var data = $('#submit-data').val()
 
-    _ajax_request('/api/v1/document', data, 'PUT', function(response) {
+    _ajax_request('/api/v1/documents', data, 'PUT', function(response) {
         console.log(response)
         location.reload()
     })
@@ -23,9 +23,22 @@ function post() {
 
     var data = $('#submit-data').val()
 
-    _ajax_request('/api/v1/document', data, 'POST', function(response) {
+    _ajax_request('/api/v1/documents', data, 'POST', function(response) {
         console.log(response)
         location.reload()
+    })
+
+}
+
+
+function compact() {
+
+    _ajax_request('/api/v1/documents/compact', null, 'GET', function(response) {
+        console.log(response)
+        new PNotify({
+            title: 'Compaction Succesfull',
+            text: response
+        });
     })
 
 }
@@ -34,3 +47,4 @@ function post() {
 $('#submit-post').click(post);
 
 $('#submit-put').click(put);
+$('#submit-compact').click(compact);
