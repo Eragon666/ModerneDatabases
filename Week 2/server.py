@@ -93,6 +93,7 @@ class StoreHandler(tornado.web.RequestHandler):
         self.finish("Succesfully retrieved all " + str(i) + " items from the database.\n")
 
     def post(self):
+
         data = self.request.body
         value = data.decode("utf-8")
 
@@ -119,6 +120,12 @@ class StoreHandler(tornado.web.RequestHandler):
         self.finish("Method not Implemented\n")
 
 
+class SingleStoreHandler(tornado.web.RequestHandler):
+
+    def get(self):
+        pass
+
+
 class ApiInterface(tornado.web.RequestHandler):
     """
     Class for handling actions in the web interface
@@ -138,6 +145,23 @@ class ApiInterface(tornado.web.RequestHandler):
         self.set_status(405)
         self.finish("<html><body>POST not supported!</body></html>")
 
+class CompactionHandler(tornado.web.RequestHandler):
+
+    def get(self):
+        """
+        This class handles requests to compact the entire database
+        """
+        db = getDb()
+
+        db.compaction()
+
+        CloseDb(db)
+
+        self.set_status(200)
+        self.finish('Compaction of database was succesfull.')
+
+
+
 
 class Application(tornado.web.Application):
 
@@ -147,7 +171,8 @@ class Application(tornado.web.Application):
             (r"/api/v1/document/?", StoreHandler),
             (r'/static/(.*)', tornado.web.StaticFileHandler,
              {'path': 'static'}),
-            (r"/api/v1/document/[0-9][0-9][0-9][0-9]/?", StoreHandler)
+            (r"/api/v1/document/[0-9]+", SingleStoreHandler),
+            (r"/api/v1/document/compaction", CompactionHandler)
         ]
         tornado.web.Application.__init__(self, handlers)
 
