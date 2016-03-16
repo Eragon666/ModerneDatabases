@@ -212,14 +212,75 @@ class MapHandler(tornado.web.RequestHandler):
     def post(self):
 
         emitfile = self.get_argument('emit', 'emit.py')
-        mapfile = self.get_argument('map', 'map.py')
+        reducefile = self.get_argument('reduce', 'reduce.py')
+
+        mr = MapReduce()
+        mr.map(self, emitfile, reducefile)
+        mr.mapResult(self)
+
+    def get(self):
+        """
+        Execute the map function
+        :return:
+        """
+        emitfile = 'emit.py'
+        reducefile = 'reduce.py'
+
+        mr = MapReduce()
+        mr.map(self, emitfile, reducefile)
+        mr.mapResult(self)
+
+class MapResultHandler(tornado.web.RequestHandler):
+    """
+    Return the result of the map function
+    """
+
+    def get(self):
+        mr = MapReduce()
+        mr.mapResult(self)
+
+
+class ReduceHandler(tornado.web.RequestHandler):
+    """
+    Run the reduce operation. By default uses reduce.py.
+    Returns the result of the reduce operation
+    """
+
+    def post(self):
+
+        reducefile = self.get_argument('reduce', 'reduce.py')
+
+        mr = MapReduce()
+        mr.reduce(self, reducefile)
+        mr.reduceResult(self)
+
+    def get(self):
+        reducefile = 'reduce.py'
+
+        mr = MapReduce()
+
+        mr.reduce(self, reducefile)
+        mr.reduceResult(self)
+
+class ReduceResultHandler(tornado.web.RequestHandler):
+    """
+    Show the results from the reduce operation
+    """
+
+    def get(self):
+        mr = MapReduce()
+        mr.reduceResult(self)
+
+class MapReduce():
+
+    def map(self, web, emitfile, reducefile):
 
         removeFile('emit.db')
 
         # Open a new asteval wrapper and add the necessary files
         mrScript = Script()
         mrScript.add_file(emitfile)
-        mrScript.add_file(mapfile)
+        mrScript.add_file(reducefile)
         mrScript.symtable['emit_dict'] = {}
 
         db = getDb()
@@ -245,18 +306,9 @@ class MapHandler(tornado.web.RequestHandler):
         CloseDb(db)
         CloseDb(tmp_db)
 
-        self.write("Map function executed!\n")
+        web.write("Map function executed!\n")
 
-        self.returnResult(self)
-
-    def get(self):
-        """
-        Get the result of the map function
-        :return:
-        """
-        self.returnResult(self)
-
-    def returnResult(self, web):
+    def mapResult(self, web):
         # Retrieve the tmp database used for storing the results of the mapper
         tmp_db = getDb('emit.db')
 
@@ -269,20 +321,12 @@ class MapHandler(tornado.web.RequestHandler):
 
         CloseDb(tmp_db)
 
-class ReduceHandler(tornado.web.RequestHandler):
-    """
-    Reduce handler
-    """
-
-    def post(self):
-
+    def reduce(self, web, reducefile):
         # Remove the file from the previous reduce
         removeFile('reduce.db')
 
-        mapfile = self.get_argument('map', 'map.py')
-
         mrScript = Script()
-        mrScript.add_file(mapfile)
+        mrScript.add_file(reducefile)
 
         # Get the emit database and make a new reduce database
         tmp_db = getDb('emit.db')
@@ -298,14 +342,9 @@ class ReduceHandler(tornado.web.RequestHandler):
         CloseDb(tmp_db)
         CloseDb(reduce_db)
 
-        self.write("Reduce function executed!\n")
+        web.write("Reduce function executed!\n")
 
-        self.returnResult(self)
-
-    def get(self):
-        self.returnResult(self)
-
-    def returnResult(self, web):
+    def reduceResult(self, web):
         reduce_db = getDb('reduce.db')
 
         g = ((k, reduce_db[k]) for k in sorted(reduce_db, key=reduce_db.get, reverse=True))
@@ -319,7 +358,6 @@ class ReduceHandler(tornado.web.RequestHandler):
         web.finish("Done!\n")
 
 
-
 class Application(tornado.web.Application):
 
     def __init__(self):
@@ -331,9 +369,9 @@ class Application(tornado.web.Application):
              {'path': 'static'}),
             (r"/api/v1/documents/compact", CompactionHandler),
             (r"/api/v1/map", MapHandler),
-            (r"/api/v1/map/result", MapHandler),
+            (r"/api/v1/map/result", MapResultHandler),
             (r"/api/v1/reduce", ReduceHandler),
-            (r"/api/v1/reduce/result", ReduceHandler)
+            (r"/api/v1/reduce/result", ReduceResultHandler)
         ]
         tornado.web.Application.__init__(self, handlers)
 
