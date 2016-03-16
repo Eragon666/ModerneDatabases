@@ -7,26 +7,88 @@ import json, os
 from yamr import Database, Chunk, Tree
 
 
-class MainHandler(tornado.web.RequestHandler):
+def getDb():
+    """
+    Get the database object
+    :return: Database object
+    """
+    return Database('test.db', max_size=4)
 
-    def get(self):
-        self.write('Hello, world!')
+def CloseDb(db):
+    """
+    Close the given DB object
+    :param db:
+    """
+    db.close()
 
+def DbGetItems():
+    """
+    Get a list of all the items in the database
+    :return: List with all DB items
+    """
+    db = getDb()
+
+    items = db.items()
+
+    itemArray = []
+
+    for k, v in items:
+        itemArray.append([str(k), str(v.decode('utf-8'))])
+        #self.write(str(k) + ": " + str(v.decode('utf-8')) + "\n")
+
+    CloseDb(db)
+
+    return itemArray
+
+def DbPostItems(value):
+    """
+    Add a value to the database
+    :param value:
+    :return: key of new item
+    """
+    db = getDb()
+
+    # Get the last key in the database.
+    key = max(db.keys(), key=int) + 1
+
+    db[int(key)] = value
+
+    db.commit()
+
+    CloseDb(db)
+
+    return key
+
+def DbPutItems(data_json):
+
+    # The old file can be deleted. Put will replace all the content.
+    if os.path.isfile('test.db'):
+        os.remove('test.db')
+
+    db = getDb()
+
+    # Add all the items to the new database
+    for k, v in data_json.items():
+        db[int(k)] = v
+
+    db.commit()
+
+    CloseDb(db)
 
 class StoreHandler(tornado.web.RequestHandler):
+    """
+    This class handles all the requests to the API
+    """
 
     def get(self):
-        db = Database('test.db', max_size=4)
 
+        items = DbGetItems()
         self.set_status(200)
-
         i = 0
 
-        for k, v in db.items():
+        for k, v in items:
             i += 1
-            self.write(str(k) + ": " + str(v.decode('utf-8')) + "\n")
-
-        db.close()
+            self.write(str(k) + ": " + str(v) + "\n")
 
         self.finish("Succesfully retrieved all " + str(i) + " items from the database.\n")
 
@@ -34,39 +96,18 @@ class StoreHandler(tornado.web.RequestHandler):
         data = self.request.body
         value = data.decode("utf-8")
 
-        db = Database('test.db', max_size=4)
-
-        # Get the last key in the database.
-        key = max(db.keys(), key=int) + 1
-
-        db[int(key)] = value
-
-        db.commit()
-
-        db.close()
+        key = DbPostItems(value)
 
         self.set_status(200)
         self.finish("Document inserted in key " + str(key) + "\n")
 
     def put(self):
-        # The old file can be deleted. Put will replace all the content.
-
-        if os.path.isfile('test.db'):
-            os.remove('test.db')
 
         # Load the data from the request and decode to utf-8
         data = self.request.body
         data_json = json.loads(data.decode("utf-8"))
 
-        db = Database('test.db', max_size=4)
-
-        # Add all the items to the new database
-        for k, v in data_json.items():
-            db[int(k)] = v
-
-        db.commit()
-
-        db.close()
+        DbPutItems(data_json)
 
         self.set_status(200)
         self.finish("PUT action successfull\n")
@@ -79,6 +120,9 @@ class StoreHandler(tornado.web.RequestHandler):
 
 
 class ApiInterface(tornado.web.RequestHandler):
+    """
+    Class for handling actions in the web interface
+    """
 
     def get(self):
 
