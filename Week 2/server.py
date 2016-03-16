@@ -211,12 +211,15 @@ class MapHandler(tornado.web.RequestHandler):
 
     def post(self):
 
+        emitfile = self.get_argument('emit', 'emit.py')
+        mapfile = self.get_argument('map', 'map.py')
+
         removeFile('emit.db')
 
         # Open a new asteval wrapper and add the necessary files
         mrScript = Script()
-        mrScript.add_file('emit.py')
-        mrScript.add_file('map.py')
+        mrScript.add_file(emitfile)
+        mrScript.add_file(mapfile)
         mrScript.symtable['emit_dict'] = {}
 
         db = getDb()
@@ -232,7 +235,7 @@ class MapHandler(tornado.web.RequestHandler):
             # Store the value and key in the emit_dict
             emit_dict = mrScript.symtable['emit_dict']
 
-            for tmp_k, tmp_v in emit_dict.titems():
+            for tmp_k, tmp_v in emit_dict.items():
                 if tmp_k in tmp_db:
                     tmp_db[tmp_k].extend(tmp_v)
                 else:
@@ -242,24 +245,27 @@ class MapHandler(tornado.web.RequestHandler):
         CloseDb(db)
         CloseDb(tmp_db)
 
-        self.set_status(200)
-        self.finish("Use get method to retrieve the result!\n")
+        self.write("Map function executed!\n")
+
+        self.returnResult(self)
 
     def get(self):
         """
         Get the result of the map function
         :return:
         """
+        self.returnResult(self)
 
+    def returnResult(self, web):
         # Retrieve the tmp database used for storing the results of the mapper
         tmp_db = getDb('emit.db')
 
-        self.set_status(200)
+        web.set_status(200)
 
         for k,v in tmp_db.items():
-            self.write(str(k) + ': ' + str(v) + '\n')
+            web.write(str(k) + ': ' + str(v) + '\n')
 
-        self.finish("All items retrieved")
+        web.finish("All items retrieved\n")
 
         CloseDb(tmp_db)
 
@@ -269,10 +275,50 @@ class ReduceHandler(tornado.web.RequestHandler):
     """
 
     def post(self):
-        pass
+
+        # Remove the file from the previous reduce
+        removeFile('reduce.db')
+
+        mapfile = self.get_argument('map', 'map.py')
+
+        mrScript = Script()
+        mrScript.add_file(mapfile)
+
+        # Get the emit database and make a new reduce database
+        tmp_db = getDb('emit.db')
+        reduce_db = getDb('reduce.db')
+
+        # Now every key value pair has to be processed
+        for k, v in tmp_db.items():
+            value = mrScript.invoke('dbReduce', key=k, values=v)
+            reduce_db[k] = str(value)
+
+        reduce_db.commit()
+
+        CloseDb(tmp_db)
+        CloseDb(reduce_db)
+
+        self.write("Reduce function executed!\n")
+
+        self.returnResult(self)
 
     def get(self):
-        pass
+        self.returnResult(self)
+
+    def returnResult(self, web):
+        reduce_db = getDb('reduce.db')
+
+        g = ((k, reduce_db[k]) for k in sorted(reduce_db, key=reduce_db.get, reverse=True))
+
+        for k, v in g:
+            web.write(k.decode("utf-8") + " : " + str(v.decode("utf-8")) + "\n")
+
+        CloseDb(reduce_db)
+
+        web.set_status(200)
+        web.finish("Done!\n")
+
+
 
 class Application(tornado.web.Application):
 
