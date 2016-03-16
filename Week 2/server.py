@@ -1,18 +1,17 @@
 from tornado.ioloop import IOLoop
 from tornado import template
 import tornado.web
-
+from asteval_wrapper import Script
+from yamr import Database, Chunk, Tree
 import json, os
 
-from yamr import Database, Chunk, Tree
 
-
-def getDb():
+def getDb(document='test.db'):
     """
     Get the database object
     :return: Database object
     """
-    return Database('test.db', max_size=4)
+    return Database(document, max_size=4)
 
 def CloseDb(db):
     """
@@ -69,8 +68,7 @@ def DbPostItems(value):
 def DbPutItems(data_json):
 
     # The old file can be deleted. Put will replace all the content.
-    if os.path.isfile('test.db'):
-        os.remove('test.db')
+    removeFile('test.db')
 
     db = getDb()
 
@@ -81,6 +79,15 @@ def DbPutItems(data_json):
     db.commit()
 
     CloseDb(db)
+
+def removeFile(file):
+    """
+    Remove the specified file if available
+    :param file:
+    :return:
+    """
+    if os.path.isfile(file):
+        os.remove(file)
 
 class StoreHandler(tornado.web.RequestHandler):
     """
@@ -167,12 +174,12 @@ class ApiInterface(tornado.web.RequestHandler):
 
     def get(self):
 
-        db = Database('test.db', max_size=4)
+        db = getDb()
 
         loader = template.Loader("templates")
         self.write(loader.load("index.html").generate(db=db, alert=None))
 
-        db.close()
+        CloseDb(db)
 
     def post(self):
         self.clear()
@@ -182,11 +189,11 @@ class ApiInterface(tornado.web.RequestHandler):
 
 
 class CompactionHandler(tornado.web.RequestHandler):
+    """
+    This class handles requests to compact the entire database
+    """
 
     def get(self):
-        """
-        This class handles requests to compact the entire database
-        """
         db = getDb()
 
         db.compaction()
@@ -195,6 +202,77 @@ class CompactionHandler(tornado.web.RequestHandler):
 
         self.set_status(200)
         self.finish('Compaction of database was succesfull.')
+
+
+class MapHandler(tornado.web.RequestHandler):
+    """
+    Map handler
+    """
+
+    def post(self):
+
+        removeFile('emit.db')
+
+        # Open a new asteval wrapper and add the necessary files
+        mrScript = Script()
+        mrScript.add_file('emit.py')
+        mrScript.add_file('map.py')
+        mrScript.symtable['emit_dict'] = {}
+
+        db = getDb()
+        tmp_db = getDb('emit.db')
+
+        # Forward all the documents to the map query
+        for v in db.values():
+
+            mrScript.symtable['emit_dict'] = {}
+
+            mrScript.invoke('dbMap', doc=v)
+
+            # Store the value and key in the emit_dict
+            emit_dict = mrScript.symtable['emit_dict']
+
+            for tmp_k, tmp_v in emit_dict.titems():
+                if tmp_k in tmp_db:
+                    tmp_db[tmp_k].extend(tmp_v)
+                else:
+                    tmp_db[tmp_k] = tmp_v
+
+        tmp_db.commit()
+        CloseDb(db)
+        CloseDb(tmp_db)
+
+        self.set_status(200)
+        self.finish("Use get method to retrieve the result!\n")
+
+    def get(self):
+        """
+        Get the result of the map function
+        :return:
+        """
+
+        # Retrieve the tmp database used for storing the results of the mapper
+        tmp_db = getDb('emit.db')
+
+        self.set_status(200)
+
+        for k,v in tmp_db.items():
+            self.write(str(k) + ': ' + str(v) + '\n')
+
+        self.finish("All items retrieved")
+
+        CloseDb(tmp_db)
+
+class ReduceHandler(tornado.web.RequestHandler):
+    """
+    Reduce handler
+    """
+
+    def post(self):
+        pass
+
+    def get(self):
+        pass
 
 class Application(tornado.web.Application):
 
@@ -205,7 +283,11 @@ class Application(tornado.web.Application):
             (r"/api/v1/document/([0-9]+)", SingleStoreHandler),
             (r'/static/(.*)', tornado.web.StaticFileHandler,
              {'path': 'static'}),
-            (r"/api/v1/documents/compact", CompactionHandler)
+            (r"/api/v1/documents/compact", CompactionHandler),
+            (r"/api/v1/map", MapHandler),
+            (r"/api/v1/map/result", MapHandler),
+            (r"/api/v1/reduce", ReduceHandler),
+            (r"/api/v1/reduce/result", ReduceHandler)
         ]
         tornado.web.Application.__init__(self, handlers)
 
