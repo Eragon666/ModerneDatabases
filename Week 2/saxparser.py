@@ -21,10 +21,12 @@ class NVDHandler(xml.sax.ContentHandler):
 
     # Call when an elements ends
     def endElement(self, tag):
-        if self.CurrentData == "entry":
+        if tag == "entry":
+            print("hoi")
             self.db[self.id] = self.products
             self.products = []
-        elif self.CurrentData == "nvd":
+        elif tag == "nvd":
+            print("committing")
             self.db.commit()
             CloseDb(self.db)
 
