@@ -14,7 +14,9 @@ from .chunk import Chunk, ChunkId
 import sys
 import os
 
+
 class Database(MutableMapping):
+
     def __init__(self, path, max_size=1024):
         data = None
         offset = None
