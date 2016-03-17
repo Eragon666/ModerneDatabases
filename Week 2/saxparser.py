@@ -10,7 +10,6 @@ class NVDHandler(xml.sax.ContentHandler):
         self.db = getDb('nvd.db')
         self.id = ""
         self.products = []
-        self.count = 0
 
     # Call when an element starts
     def startElement(self, tag, attributes):
@@ -23,11 +22,9 @@ class NVDHandler(xml.sax.ContentHandler):
     # Call when an elements ends
     def endElement(self, tag):
         if tag == "entry":
-            print("hoi")
             self.db[self.id] = self.products
             self.products = []
         elif tag == "nvd":
-            print("committing")
             self.db.commit()
             CloseDb(self.db)
 
@@ -36,14 +33,13 @@ class NVDHandler(xml.sax.ContentHandler):
     # Call when a character is read
     def characters(self, content):
         if self.CurrentData == "vuln:product":
-            if content != None:
-                data = content.split(':', 4)
-                print(data[3])
-                self.count += 1
-                print(self.count)
-                # vendor = data[2], product = data[3]
-                if data[3] != None:
-                    self.products += [data[3]]
+            data = content.split(':', 4)
+            # vendor = data[2], product = data[3]
+            if len(data) > 3:
+                # print(data[3])
+                self.products += [data[3]]
+            else:
+                print("data too short")
 
 if (__name__ == "__main__"):
     # create an XMLReader
@@ -55,4 +51,4 @@ if (__name__ == "__main__"):
     Handler = NVDHandler()
     parser.setContentHandler(Handler)
     parser.parse("Database files/nvdcve-2.0-2015.xml")
-    #parser.parse("Database files/test.xml")
+    # parser.parse("Database files/test.xml")
